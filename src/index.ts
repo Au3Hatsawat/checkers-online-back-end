@@ -2,9 +2,9 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
-import router from "./routes/index.route.js";
-import { joinQueue, registerSocketEvents } from "./sockets/game.socket.js";
-import { saveMove } from "./services/game.service.js";
+import router from "./routes/index.route";
+import { joinQueue, registerSocketEvents } from "./sockets/game.socket";
+import { saveMove } from "./services/game.service";
 
 const app = express();
 const server = http.createServer(app);
