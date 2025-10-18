@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
-import prisma from "../prisma/client.js";
+import prisma from "../prisma/client";
 import { v4 as uuid } from "uuid";
-import { saveMove } from "../services/game.service.js";
+import { saveMove } from "../services/game.service";
 
 let queue: { userId: number; socket: Socket }[] = [];
 
@@ -31,7 +31,7 @@ export const joinQueue = async (
         playerBlackId: black.id,
         status: "playing",
         moves: [],
-        currentPlayer: "red", 
+        currentPlayer: "red",
       },
     });
 
@@ -59,7 +59,7 @@ export const registerSocketEvents = (io: Server) => {
       if (!game) socket.emit("waitingForOpponent");
     });
 
-    // Join room (กรณีเข้ามาทีหลัง)
+    // Join room
     socket.on("joinRoom", async (roomId: string, userId: number) => {
       socket.data.userId = userId;
       socket.join(roomId);
@@ -84,8 +84,6 @@ export const registerSocketEvents = (io: Server) => {
     socket.on("makeMove", async (roomId: string, move: any) => {
       const game = await prisma.game.findUnique({ where: { roomId } });
       if (!game) return;
-
-      // ✅ ตรวจสอบว่าผู้เล่นนี้เป็นคนที่ถึงตาหรือเปล่า
       const userId = Number(socket.data.userId);
       const isRedTurn = game.currentPlayer === "red" && game.playerRedId === userId;
       const isBlackTurn = game.currentPlayer === "black" && game.playerBlackId === userId;
@@ -98,21 +96,30 @@ export const registerSocketEvents = (io: Server) => {
       // บันทึก move
       const updatedGame = await saveMove(roomId, move);
 
-      // ✅ สลับตา (red <-> black)
-      const nextPlayer = game.currentPlayer === "red" ? "black" : "red";
-      await prisma.game.update({
-        where: { roomId },
-        data: { currentPlayer: nextPlayer },
-      });
-
-      console.log(`🎯 Move received in room ${roomId}:`, move, "Next:", nextPlayer);
-
-      // ✅ ส่งให้ทั้งห้อง (แต่ client จะ ignore ตัวเองอยู่แล้ว)
       io.to(roomId).emit("opponentMove", {
         move,
         senderId: socket.id,
+      });
+
+    });
+
+    // End turn
+    socket.on("endTurn", async (roomId: string) => {
+      const game = await prisma.game.findUnique({ where: { roomId } });
+      if (!game) return;
+
+      const nextPlayer = game.currentPlayer === "red" ? "black" : "red";
+      const updated = await prisma.game.update({
+        where: { roomId },
+        data: { currentPlayer: nextPlayer },
+      });
+      console.log(`🎯 Move received in room ${roomId}:`, "Next:", nextPlayer);
+
+      io.to(roomId).emit("changePlayer", {
+        senderId: socket.id,
         nextPlayer,
       });
+
     });
 
     // Disconnect
