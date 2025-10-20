@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import prisma from "../prisma/client";
 import { v4 as uuid } from "uuid";
 import { saveMove } from "../services/game.service";
+import { calculateElo } from "../utils/game";
 
 let queue: { userId: number; socket: Socket }[] = [];
 
@@ -65,7 +66,7 @@ export const registerSocketEvents = (io: Server) => {
       socket.join(roomId);
       console.log(`🔗 ${socket.id} joined room ${roomId}`);
 
-      const game = await prisma.game.findUnique({ where: { roomId } });
+      const game = await prisma.game.findUnique({ where: { roomId }, include: { playerBlack: true, playerRed: true } });
       if (!game) return;
 
       let side: "red" | "black" = "red";
@@ -76,7 +77,9 @@ export const registerSocketEvents = (io: Server) => {
         return;
       }
 
+
       socket.emit("setPlayerSide", side);
+      socket.emit("setGame", game);
       socket.emit("setCurrentPlayer", game.currentPlayer);
     });
 
@@ -120,6 +123,64 @@ export const registerSocketEvents = (io: Server) => {
         nextPlayer,
       });
 
+    });
+
+    // Game Over
+    socket.on("gameOver", async (roomId: string, winnerColor: "red" | "black") => {
+      try {
+        const game = await prisma.game.findUnique({
+          where: { roomId },
+          include: { playerRed: true, playerBlack: true },
+        });
+
+        if (!game || !game.playerRed || !game.playerBlack) {
+          console.warn(`⚠️ ไม่พบเกมหรือผู้เล่นในห้อง ${roomId}`);
+          return;
+        }
+
+        const red = game.playerRed;
+        const black = game.playerBlack;
+
+        let scoreRed = winnerColor === "red" ? 1 : 0;
+        let scoreBlack = winnerColor === "black" ? 1 : 0;
+
+        const { newA: newRedRating, newB: newBlackRating } = calculateElo(
+          red.rating,
+          black.rating,
+          scoreRed
+        );
+
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: red.id },
+            data: { rating: newRedRating },
+          }),
+          prisma.user.update({
+            where: { id: black.id },
+            data: { rating: newBlackRating },
+          }),
+          prisma.game.update({
+            where: { roomId },
+            data: { status: "finished", winnerColor },
+          }),
+        ]);
+
+        io.to(roomId).emit("gameFinished", {
+          winnerColor,
+          newRatings: {
+            red: newRedRating,
+            black: newBlackRating,
+          },
+        });
+      } catch (err) {
+        console.error("❌ เกิดข้อผิดพลาดใน gameOver:", err);
+      }
+    });
+
+
+    // Cancel Queue
+    socket.on("cancelQueue", () => {
+      queue = queue.filter((p) => p.socket.id !== socket.id);
     });
 
     // Disconnect

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { loginUser, registerUser } from "../services/auth.service";
-import { getUserById } from "../services/user.service";
+import { findUserById } from "../services/user.service";
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -27,7 +27,7 @@ export const me = async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const user = await getUserById(userId);
+    const user = await findUserById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json(user);

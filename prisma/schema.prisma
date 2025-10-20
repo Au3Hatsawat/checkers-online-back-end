@@ -27,7 +27,6 @@ model User {
   gamesAsBlack Game[] @relation("BlackPlayer")
 }
 
-
 model Game {
   id             Int      @id @default(autoincrement())
   roomId         String   @unique
@@ -38,8 +37,10 @@ model Game {
   status         String   @default("waiting")
   moves          Json?
   currentPlayer  String   @default("red")
+  winnerColor    String?  // "red" | "black"
   createdAt      DateTime @default(now())
 }
+
 
 
 
