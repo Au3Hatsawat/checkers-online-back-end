@@ -19,6 +19,8 @@ CREATE TABLE "Game" (
     "playerBlackId" INTEGER,
     "status" TEXT NOT NULL DEFAULT 'waiting',
     "moves" JSONB,
+    "currentPlayer" TEXT NOT NULL DEFAULT 'red',
+    "winnerColor" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Game_pkey" PRIMARY KEY ("id")
