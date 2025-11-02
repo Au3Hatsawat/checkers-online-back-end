@@ -16,7 +16,12 @@ export const findUserById = async (id: number) => {
       socketId: true,
       createdAt: true,
       gamesAsBlack: true,
-      gamesAsRed: true,
+      gamesAsRed: {
+        include: {
+          playerBlack : true,
+          playerRed : true,
+        }
+      },
     },
   });
   return user;
